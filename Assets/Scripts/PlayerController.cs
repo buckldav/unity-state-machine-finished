@@ -13,14 +13,13 @@ public class PlayerController : MonoBehaviour
         Falling,
     }
 
+    private PlayerState currentState = PlayerState.Falling;
     private bool isGrounded;
-    private bool jumpEnabled;
     private Rigidbody2D rb;
     private SpriteRenderer sr;
-    // OPTIONAL: include if you want to limit x velocity
+    
     private const float MAX_VEL_X = 15;
-
-    private PlayerState currentState = PlayerState.Falling;
+    private const float IN_AIR_PCT = 0.5f;
 
     public float xSpeed;
     public float jumpStrength;
@@ -28,7 +27,6 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         isGrounded = false;
-        jumpEnabled = false;
         rb = GetComponent<Rigidbody2D>();
         sr = GetComponent<SpriteRenderer>();
     }
@@ -45,8 +43,17 @@ public class PlayerController : MonoBehaviour
         float xHat = new Vector2(Input.GetAxis("Horizontal"), 0).normalized.x;
         float vx = xHat * xSpeed * percent;
         rb.AddForce(transform.right * vx);
-        // OPTIONAL: include if you want to limit x velocity
+        // limit x velocity
         rb.velocity = new Vector2(Vector2.ClampMagnitude(rb.velocity, MAX_VEL_X).x, rb.velocity.y);
+    }
+
+    void StartFalling() {
+        // start falling state if the velocity is negative
+        const float NEGATIVE_VEL = -0.5f;
+        if (rb.velocity.y < NEGATIVE_VEL) {
+            isGrounded = false;
+            currentState = PlayerState.Falling;
+        }
     }
 
     void MoveState() {
@@ -57,21 +64,29 @@ public class PlayerController : MonoBehaviour
         if (isGrounded && yHat == 1) {
             currentState = PlayerState.Jumping;
         }
+        
+        StartFalling();
     }
 
     void JumpState() {
         sr.color = Color.magenta;
-        float vy = jumpStrength;
-        isGrounded = false;
-        rb.AddForce(transform.up * vy);
-        currentState = PlayerState.Falling;
+        MoveX(IN_AIR_PCT);
+        
+        if (isGrounded) {
+            // add vertical force
+            float vy = jumpStrength;
+            rb.AddForce(transform.up * vy);
+            isGrounded = false;
+        }
+        
+        StartFalling();
     }
 
     void FallingState() {
         sr.color = Color.white;
-        MoveX(0.5f);
+        MoveX(IN_AIR_PCT);
 
-        jumpEnabled = isGrounded && rb.velocity.y <= 0;
+        bool jumpEnabled = isGrounded && rb.velocity.y <= 0;
         if (jumpEnabled) {
             currentState = PlayerState.Moving;
         }
